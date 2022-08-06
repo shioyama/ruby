@@ -1143,7 +1143,7 @@ require_internal(rb_execution_context_t *ec, VALUE fname, int exception, bool wa
 
     EC_PUSH_TAG(ec);
     ec->errinfo = Qnil; /* ensure */
-    th->top_wrapper = 0;
+    /* th->top_wrapper = 0; */
     if ((state = EC_EXEC_TAG()) == TAG_NONE) {
         long handle;
         int found;

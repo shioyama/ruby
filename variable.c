@@ -145,6 +145,9 @@ static VALUE
 make_temporary_path(VALUE obj, VALUE klass)
 {
     VALUE path;
+    VALUE top_wrapper = GET_THREAD()->top_wrapper;
+
+    if (top_wrapper) return Qnil;
     switch (klass) {
       case Qnil:
         path = rb_sprintf("#<Class:%p>", (void*)obj);
@@ -216,6 +219,7 @@ rb_search_class_path(VALUE klass)
 static VALUE
 build_const_pathname(VALUE head, VALUE tail)
 {
+    if (NIL_P(head)) return tail;
     VALUE path = rb_str_dup(head);
     rb_str_cat2(path, "::");
     rb_str_append(path, tail);
@@ -262,7 +266,12 @@ rb_path_to_class(VALUE pathname)
     rb_encoding *enc = rb_enc_get(pathname);
     const char *pbeg, *pend, *p, *path = RSTRING_PTR(pathname);
     ID id;
+    VALUE top_wrapper = GET_THREAD()->top_wrapper;
     VALUE c = rb_cObject;
+
+    if (top_wrapper) {
+      c = top_wrapper;
+    }
 
     if (!rb_enc_asciicompat(enc)) {
         rb_raise(rb_eArgError, "invalid class path encoding (non ASCII)");
@@ -2781,6 +2790,11 @@ rb_const_warn_if_deprecated(const rb_const_entry_t *ce, VALUE klass, ID id)
 static VALUE
 rb_const_get_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
 {
+    VALUE top_wrapper = GET_THREAD()->top_wrapper;
+
+    if ((top_wrapper) && (klass == rb_cObject)) {
+      klass = top_wrapper;
+    }
     VALUE c = rb_const_search(klass, id, exclude, recurse, visibility);
     if (c != Qundef) {
         if (UNLIKELY(!rb_ractor_main_p())) {
@@ -3139,8 +3153,13 @@ static int
 rb_const_defined_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
 {
     VALUE tmp;
+    VALUE top_wrapper = GET_THREAD()->top_wrapper;
     int mod_retry = 0;
     rb_const_entry_t *ce;
+
+    if ((top_wrapper) && (klass == rb_cObject)) {
+      klass = top_wrapper;
+    }
 
     tmp = klass;
   retry:
@@ -3324,6 +3343,12 @@ const_set(VALUE klass, ID id, VALUE val)
 void
 rb_const_set(VALUE klass, ID id, VALUE val)
 {
+    VALUE top_wrapper = GET_THREAD()->top_wrapper;
+
+    if ((top_wrapper) && (klass == rb_cObject)) {
+      klass = top_wrapper;
+    }
+
     const_set(klass, id, val);
     const_added(klass, id);
 }
@@ -3418,6 +3443,12 @@ setup_const_entry(rb_const_entry_t *ce, VALUE klass, VALUE val,
 void
 rb_define_const(VALUE klass, const char *name, VALUE val)
 {
+    VALUE top_wrapper = GET_THREAD()->top_wrapper;
+
+    if ((top_wrapper) && (klass == rb_cObject)) {
+      klass = top_wrapper;
+    }
+
     ID id = rb_intern(name);
 
     if (!rb_is_const_id(id)) {
