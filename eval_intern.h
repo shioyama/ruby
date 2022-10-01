@@ -178,6 +178,8 @@ rb_ec_tag_jump(const rb_execution_context_t *ec, enum ruby_tag_type st)
 #define CREF_FL_PUSHED_BY_EVAL IMEMO_FL_USER1
 #define CREF_FL_OMOD_SHARED    IMEMO_FL_USER2
 #define CREF_FL_SINGLETON      IMEMO_FL_USER3
+#define CREF_FL_WRAPPED        IMEMO_FL_USER4
+#define CREF_FL_TOP_WRAPPER    IMEMO_FL_USER5
 
 static inline int CREF_SINGLETON(const rb_cref_t *cref);
 
@@ -267,6 +269,30 @@ static inline void
 CREF_OMOD_SHARED_UNSET(rb_cref_t *cref)
 {
     cref->flags &= ~CREF_FL_OMOD_SHARED;
+}
+
+static inline int
+CREF_WRAPPED(const rb_cref_t *cref)
+{
+    return cref->flags & CREF_FL_WRAPPED;
+}
+
+static inline void
+CREF_WRAPPED_SET(rb_cref_t *cref)
+{
+    cref->flags |= CREF_FL_WRAPPED;
+}
+
+static inline int
+CREF_TOP_WRAPPER(const rb_cref_t *cref)
+{
+    return cref->flags & CREF_FL_TOP_WRAPPER;
+}
+
+static inline void
+CREF_TOP_WRAPPER_SET(rb_cref_t *cref)
+{
+    cref->flags |= CREF_FL_TOP_WRAPPER;
 }
 
 enum {

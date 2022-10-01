@@ -17,6 +17,7 @@
 #include "ccan/list/list.h"
 #include "constant.h"
 #include "debug_counter.h"
+#include "eval_intern.h"
 #include "id.h"
 #include "id_table.h"
 #include "internal.h"
@@ -142,10 +143,24 @@ rb_mod_name(VALUE mod)
 }
 
 static VALUE
+get_top_wrapper(void)
+{
+    if (GET_THREAD()->top_wrapper) return GET_THREAD()->top_wrapper;
+
+    rb_cref_t *cref = rb_vm_cref();
+
+    while (cref && CREF_NEXT(cref) && CREF_WRAPPED(cref)) {
+      if (CREF_TOP_WRAPPER(cref)) return CREF_CLASS(cref);
+      cref = CREF_NEXT(cref);
+    }
+    return Qnil;
+}
+
+static VALUE
 make_temporary_path(VALUE obj, VALUE klass)
 {
     VALUE path;
-    VALUE top_wrapper = GET_THREAD()->top_wrapper;
+    VALUE top_wrapper = get_top_wrapper();
 
     if (top_wrapper) return Qnil;
     switch (klass) {
@@ -266,7 +281,7 @@ rb_path_to_class(VALUE pathname)
     rb_encoding *enc = rb_enc_get(pathname);
     const char *pbeg, *pend, *p, *path = RSTRING_PTR(pathname);
     ID id;
-    VALUE top_wrapper = GET_THREAD()->top_wrapper;
+    VALUE top_wrapper = get_top_wrapper();
     VALUE c = rb_cObject;
 
     if (top_wrapper) {
@@ -2790,11 +2805,6 @@ rb_const_warn_if_deprecated(const rb_const_entry_t *ce, VALUE klass, ID id)
 static VALUE
 rb_const_get_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
 {
-    VALUE top_wrapper = GET_THREAD()->top_wrapper;
-
-    if ((top_wrapper) && (klass == rb_cObject)) {
-      klass = top_wrapper;
-    }
     VALUE c = rb_const_search(klass, id, exclude, recurse, visibility);
     if (c != Qundef) {
         if (UNLIKELY(!rb_ractor_main_p())) {
@@ -2866,6 +2876,11 @@ static VALUE
 rb_const_search(VALUE klass, ID id, int exclude, int recurse, int visibility)
 {
     VALUE value;
+    VALUE top_wrapper = get_top_wrapper();
+
+    if ((!NIL_P(top_wrapper)) && (klass == rb_cObject)) {
+      klass = top_wrapper;
+    }
 
     if (klass == rb_cObject) exclude = FALSE;
     value = rb_const_search_from(klass, id, exclude, recurse, visibility);
@@ -3153,11 +3168,11 @@ static int
 rb_const_defined_0(VALUE klass, ID id, int exclude, int recurse, int visibility)
 {
     VALUE tmp;
-    VALUE top_wrapper = GET_THREAD()->top_wrapper;
+    VALUE top_wrapper = get_top_wrapper();
     int mod_retry = 0;
     rb_const_entry_t *ce;
 
-    if ((top_wrapper) && (klass == rb_cObject)) {
+    if ((!NIL_P(top_wrapper)) && (klass == rb_cObject)) {
       klass = top_wrapper;
     }
 
@@ -3277,6 +3292,7 @@ static void
 const_set(VALUE klass, ID id, VALUE val)
 {
     rb_const_entry_t *ce;
+    VALUE top_wrapper;
 
     if (NIL_P(klass)) {
         rb_raise(rb_eTypeError, "no class/module to define constant %"PRIsVALUE"",
@@ -3285,6 +3301,12 @@ const_set(VALUE klass, ID id, VALUE val)
 
     if (!rb_ractor_main_p() && !rb_ractor_shareable_p(val)) {
         rb_raise(rb_eRactorIsolationError, "can not set constants with non-shareable objects by non-main Ractors");
+    }
+
+    top_wrapper = get_top_wrapper();
+
+    if ((!NIL_P(top_wrapper)) && (klass == rb_cObject)) {
+      klass = top_wrapper;
     }
 
     check_before_mod_set(klass, id, val, "constant");
@@ -3343,12 +3365,6 @@ const_set(VALUE klass, ID id, VALUE val)
 void
 rb_const_set(VALUE klass, ID id, VALUE val)
 {
-    VALUE top_wrapper = GET_THREAD()->top_wrapper;
-
-    if ((top_wrapper) && (klass == rb_cObject)) {
-      klass = top_wrapper;
-    }
-
     const_set(klass, id, val);
     const_added(klass, id);
 }
@@ -3443,9 +3459,9 @@ setup_const_entry(rb_const_entry_t *ce, VALUE klass, VALUE val,
 void
 rb_define_const(VALUE klass, const char *name, VALUE val)
 {
-    VALUE top_wrapper = GET_THREAD()->top_wrapper;
+    VALUE top_wrapper = get_top_wrapper();
 
-    if ((top_wrapper) && (klass == rb_cObject)) {
+    if ((!NIL_P(top_wrapper)) && (klass == rb_cObject)) {
       klass = top_wrapper;
     }
 
@@ -3983,6 +3999,11 @@ MJIT_FUNC_EXPORTED rb_const_entry_t *
 rb_const_lookup(VALUE klass, ID id)
 {
     struct rb_id_table *tbl = RCLASS_CONST_TBL(klass);
+    VALUE top_wrapper = get_top_wrapper();
+
+    if ((!NIL_P(top_wrapper)) && (klass == rb_cObject)) {
+      klass = top_wrapper;
+    }
 
     if (tbl) {
         VALUE val;

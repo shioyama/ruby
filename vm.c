@@ -230,6 +230,7 @@ static rb_cref_t *
 vm_cref_new0(VALUE klass, rb_method_visibility_t visi, int module_func, rb_cref_t *prev_cref, int pushed_by_eval, int use_prev_prev, int singleton)
 {
     VALUE refinements = Qnil;
+    VALUE top_wrapper = GET_THREAD()->top_wrapper;
     int omod_shared = FALSE;
     rb_cref_t *cref;
 
@@ -259,6 +260,10 @@ vm_cref_new0(VALUE klass, rb_method_visibility_t visi, int module_func, rb_cref_
     if (pushed_by_eval) CREF_PUSHED_BY_EVAL_SET(cref);
     if (omod_shared) CREF_OMOD_SHARED_SET(cref);
     if (singleton) CREF_SINGLETON_SET(cref);
+    if (top_wrapper) {
+      CREF_WRAPPED_SET(cref);
+      if (klass == top_wrapper) CREF_TOP_WRAPPER_SET(cref);
+    }
 
     return cref;
 }
