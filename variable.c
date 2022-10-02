@@ -162,7 +162,7 @@ make_temporary_path(VALUE obj, VALUE klass)
     VALUE path;
     VALUE top_wrapper = get_top_wrapper();
 
-    if (top_wrapper) return Qnil;
+    if (!NIL_P(top_wrapper)) return Qfalse;
     switch (klass) {
       case Qnil:
         path = rb_sprintf("#<Class:%p>", (void*)obj);
@@ -208,7 +208,7 @@ rb_class_path(VALUE klass)
 {
     int permanent;
     VALUE path = rb_tmp_class_path(klass, &permanent, make_temporary_path);
-    if (!NIL_P(path)) path = rb_str_dup(path);
+    if (!NIL_P(path) && (path != Qfalse)) path = rb_str_dup(path);
     return path;
 }
 
@@ -234,7 +234,7 @@ rb_search_class_path(VALUE klass)
 static VALUE
 build_const_pathname(VALUE head, VALUE tail)
 {
-    if (NIL_P(head)) return tail;
+    if (head == Qfalse) return tail;
     VALUE path = rb_str_dup(head);
     rb_str_cat2(path, "::");
     rb_str_append(path, tail);
